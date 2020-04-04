@@ -77,7 +77,7 @@ _ham_elem(hopping::Hopping{S}, kpt::SVector{3,S}) where S = _ham_elem(hopping.ws
 
 function _ham_elem(ws_cell::AbstractVector{<:SVector{L,S}}, hop::AbstractVector{Complex{S}}, kpt::SVector{L,S}) where {L, S<:Number}
    ham = zero(Complex{S})
-   for i in eachindex(hop)
+   for i in eachindex(ws_cell, hop)
       ham += cis( dot(kpt, ws_cell[i]) ) * hop[i]
    end
    return ham
