@@ -1,15 +1,16 @@
 using StaticArrays
+using StructArrays
 using LinearAlgebra
 using HDF5
 #using TimerOutputs
 
-struct Hopping{T}
-   ws_cell::Vector{SVector{3,Float64}}
-   hop::Vector{Complex{T}}
+struct Hopping{T<:Number}
+   ws_cell::AbstractVector{SVector{3,T}}
+   hop::AbstractVector{Complex{T}}
 end
 
-struct ElecHam{S<:Integer, T<:Number}
-   nwan::S
+struct ElecHam{T<:Number}
+   nwan::Integer
    hoppings::AbstractVector{Hopping{T}}
 end
 
@@ -30,7 +31,8 @@ function load_electron_ham(fid)
       dname = "electron_wannier/hopping_i" * string(k)
       imp = read(fid, dname)
 
-      hop = complex.(rep, imp)
+      #complex.(rep, imp)
+      hop = StructArray{Complex{eltype(at)}}( (rep, imp) )
       ws_cell = WignerSeitzCell.wigner_seitz_cell(ndim, at, tau[:,i], tau[:,j])
       
       push!(hoppings, Hopping(ws_cell, hop))
@@ -38,7 +40,7 @@ function load_electron_ham(fid)
    return nbnd, hoppings
 end
 
-function bands(el::ElecHam{S,T}, kpts::AbstractArray{T,2}) where {S, T}
+function bands(el::ElecHam{T}, kpts::AbstractArray{T,2}) where T
    size(kpts, 1) != 3 && throw(error("inconsistent dimension"))
    eigs = zeros( T, el.nwan, size(kpts,2) )
    Hk = zeros(Complex{T}, el.nwan, el.nwan)
@@ -49,7 +51,7 @@ function bands(el::ElecHam{S,T}, kpts::AbstractArray{T,2}) where {S, T}
    return eigs
 end
 
-function bands(el::ElecHam{S,T}, kpts::AbstractVector{<:SVector{3,T}}) where {S, T}
+function bands(el::ElecHam{T}, kpts::AbstractVector{<:SVector{3,T}}) where T
    eigs = zeros(T, el.nwan, length(kpts))
    Hk = zeros(Complex{T}, el.nwan, el.nwan)
    #reset_timer!()
