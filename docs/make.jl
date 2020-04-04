@@ -2,7 +2,7 @@ using Documenter, Perturbo
 
 makedocs(;
     modules=[Perturbo],
-    format=Documenter.HTML(),
+    format=Documenter.HTML(prettyurls = false),
     pages=[
         "Home" => "index.md",
     ],
