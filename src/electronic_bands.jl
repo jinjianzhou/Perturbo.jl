@@ -1,6 +1,10 @@
 using StaticArrays
 using LinearAlgebra
 using HDF5
+#for plot bandstructure
+using RecipesBase
+
+const Rydberg2eV = 13.605698066
 
 struct Hopping{S<:AbstractVector, T<:AbstractVector}
    ws_cell::S
@@ -87,4 +91,49 @@ function _ham_elem(ws_cell::AbstractVector{<:SVector{L,S}}, hop::AbstractVector{
       ham += cis( dot(kpt, ws_cell[i]) ) * hop[i]
    end
    return ham
+end
+
+#for plot bandstructure
+@userplot Plotbands
+
+@recipe function f(bs::Plotbands; nkpoints=30)
+   tb, kpath = bs.args[1:2]
+   tics, kloc, kpts = gen_kpts(kpath, tb.recip_latt, nkpoints)
+   eigs = bands(tb, kpts) .* Rydberg2eV
+   
+   tics_label = length(bs.args) >= 3 ? bs.args[3] : string.(collect(eachindex(tics)))
+   xticks --> (tics, tics_label)
+   xlims --> (kloc[1], kloc[end])
+   seriescolor --> :blue
+   ygrid --> false
+   legend --> false
+   framestyle --> :box
+   yguide --> "Energy (eV)"
+   aspect_ratio --> 0.5
+
+   #remove npoints from plotattributes, avoid unexpected results
+   delete!(plotattributes, :nkpoints)
+
+   kloc, eigs'
+end
+
+function gen_kpts(kpath, recip_latt, nk)
+   size(kpath, 1) != 3 && throw(error("size of the first dimension is not 3"))
+   kpts = [SVector{3}(kpath[:,1])]
+   kloc = [0.0]
+   npath = size(kpath, 2)
+   ktic = zeros(npath)
+
+   calc_len = WignerSeitzCell.length_func(recip_latt)
+   @inbounds for i in 2:npath
+      dk = SVector{3}(kpath[:,i]-kpath[:,i-1])
+      dk_len = calc_len(dk)
+      nkt = i == 2 ? nk : Int(round(kloc[i] * nk / kloc[2]))
+      iter = Iterators.drop(range(0.,1., length=nkt), 1)
+      ktic[i] = dk_len + ktic[i-1]
+      append!(kloc, dk_len .* iter .+ ktic[i-1])
+      append!(kpts, [dk] .* iter .+ [SVector{3}(kpath[:,i-1])] )
+   end
+
+   return ktic, kloc, kpts
 end
