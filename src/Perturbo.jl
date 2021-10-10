@@ -1,7 +1,9 @@
 module Perturbo
-export Hopping, ElecHam, load_electron_ham, bands, hamiltonian!
+export ElecHam, bands, hamiltonian!
 
+include("./types.jl")
 include("./WignerSeitzCell.jl")
-include("./electronic_bands.jl")
+include("./load_data.jl")
+include("./electronic_structure.jl")
 
 end # module
