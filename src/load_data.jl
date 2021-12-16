@@ -34,26 +34,3 @@ function load_electron_wannier(fid, num_wann)
    end
    return hopping
 end
-
-#LatticeIFC(fn::String) = LatticeIFC( (h5open(fn, "r") do fid 
-#   bdata = load_basic_data(fid)
-#   #
-#   nat = bdata[:nat]
-#   atom_pos = bdata[:tau]
-#   lattice = bdata[:at]
-#   rdim = bdata[:qc_dim]
-#   #
-#   ifc = load_force_constant(fid, nat)
-#   ws_rvecs, rvec_idx = WignerSeitzCell.wiger_seitz_cell(rdim, lattice, atom_pos)
-#   return bdata, ws_rvecs, rvec_idx, ifc
-#end)... )
-
-#function load_force_constant(fid, num_atoms)
-#   nelem = (num_atoms * (num_atoms+1))>>1
-#   ifc = Vector{ Array{Float64, 3} }(undef, nelem)
-#   
-#   for k in 1:nelem
-#      ifc[k] = read(fid, "force_constant/ifc" * string(k) )
-#   end
-#   return ifc
-#end
