@@ -3,15 +3,12 @@ struct Hopping{T}
    t::Vector{Complex{T}}
    r_idx::Vector{Int}
 end
-Hopping(t::Vector{Complex{T}}, r_idx::Vector{Int}) where T = Hopping{T}(t, r_idx)
 
 struct ElecHam{T}
    orbit_pos::Vector{ SVector{3,T} }
    ws_rvecs::Vector{ SVector{3,T} }
    hr::Vector{ Hopping{T} }
 end
-
-ElecHam(op::Vector{SVector{3,T}}, rvec::Vector{SVector{3,T}}, hr::Vector{Hopping{T}}) where T = ElecHam{T}(op, rvec, hr)
 
 ElecHam(fn::String) = ElecHam( (h5open(fn,"r") do fid 
    bdata = load_basic_data(fid)
@@ -23,24 +20,17 @@ ElecHam(fn::String) = ElecHam( (h5open(fn,"r") do fid
    #
    hopping = load_electron_wannier(fid, num_wann)
 
-   wscell = WSCell(SVector{3}(rdim), SMatrix{3,3}(lattice))
-   orb_pos = vec( reinterpret(SVector{3,eltype(w_center)}, w_center) )
+   wscell = WSCell(SVector{3,Int}(rdim), SMatrix{3,3}(lattice))
+   orb_pos = vec(collect( reinterpret(SVector{3,eltype(w_center)}, w_center) ))
    ws_rvecs, rvec_idx = wiger_seitz_cell(wscell, orb_pos)
 
    hr = [Hopping(hopping[i], rvec_idx[i]) for i in eachindex(hopping, rvec_idx)]
-
+   
    return orb_pos, ws_rvecs, hr
 end)... )
 
-
-
-exp_ikr(rvecs::AbstractVector{<:SVector}, kpt::SVector) = cis.(Ref(kpt') .* rvecs)
-_ham_elem(hr::Hopping, e_ikr::AbstractVector) = sum(e_ikr[val] * hr.t[n] for (n, val) in enumerate(hr.r_idx))
-
-function _band!(Hk::AbstractMatrix, el::ElecHam, kpt::SVector)
-   hamiltonian!(Hk, el, kpt)
-   eigvals!( Hermitian(Hk) )
-end
+exp_ikr(rvecs::AVec{<:SVector}, kpt::SVector) = cis.(Ref(kpt') .* rvecs)
+_ham_elem(hr::Hopping, e_ikr::AVec) = sum(e_ikr[val] * hr.t[n] for (n, val) in enumerate(hr.r_idx))
 
 function hamiltonian!(H::AbstractMatrix, el::ElecHam, kpt::SVector)
    nband = LinearAlgebra.checksquare(H)
@@ -48,22 +38,27 @@ function hamiltonian!(H::AbstractMatrix, el::ElecHam, kpt::SVector)
    #compute exp(i 2\pi*K*R)
    e_ikr = exp_ikr(el.ws_rvecs, 2π*kpt)
 
-   # compute upper triangle of ham
+   # compute upper triangle of H
    k = 0
    @inbounds for j = 1:nband, i = 1:j
       H[i,j] = _ham_elem(el.hr[ k+=1 ], e_ikr)
    end
 end
 
-function bands(el::ElecHam, kpt::SVector)
+function _band!(Hk::AbstractMatrix, el::ElecHam, kpt::SVector)
+   hamiltonian!(Hk, el, kpt)
+   eigvals!( Hermitian(Hk) )
+end
+
+bands(el::ElecHam{T}, kpt::AVec{T}) where T = bands(el, SVector{3,T}(kpt))
+
+function bands(el::ElecHam{T}, kpt::SVector{3,T}) where T
    nband = length(el.orbit_pos)
-   Hk = zeros(ComplexF64, nband, nband)
+   Hk = zeros(Complex{T}, nband, nband)
    _band!(Hk, el, kpt)
 end
 
-bands(el::ElecHam{T}, kpt::AbstractVector{T}) where T = bands(el, SVector{3,T}(kpt))
-
-function bands(el::ElecHam{T}, kpts::AVec{<:SVector}) where T
+function bands(el::ElecHam{T}, kpts::AbstractArray{SVector{3,T}}) where T
    nband = length(el.orbit_pos)
    Hk = zeros(Complex{T}, nband, nband)
 
@@ -76,6 +71,6 @@ function bands(el::ElecHam{T}, kpts::AVec{<:SVector}) where T
 end
 
 function bands(el::ElecHam{T}, kpts::AbstractArray{T,2}) where T
-   size(kpts, 1) != 3 && throw(error("1-dimension of kpts should be 3"))
-   bands(el, vec(reinterpret(SVector{3,T}, kpts)))
+   size(kpts, 1) == 3 || throw(error("dim 1 of kpts should be 3"))
+   bands(el, reinterpret(SVector{3,T}, kpts))
 end
