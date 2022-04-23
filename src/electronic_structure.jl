@@ -19,11 +19,9 @@ ElecHam(fn::String) = ElecHam( (h5open(fn,"r") do fid
    num_wann = bdata[:num_wann]
    #
    hopping = load_electron_wannier(fid, num_wann)
-
    wscell = WSCell(SVector{3,Int}(rdim), SMatrix{3,3}(lattice))
    orb_pos = vec(collect( reinterpret(SVector{3,eltype(w_center)}, w_center) ))
    ws_rvecs, rvec_idx = wiger_seitz_cell(wscell, orb_pos)
-
    hr = [Hopping(hopping[i], rvec_idx[i]) for i in eachindex(hopping, rvec_idx)]
    
    return orb_pos, ws_rvecs, hr
@@ -40,8 +38,8 @@ function hamiltonian!(H::AbstractMatrix, el::ElecHam, kpt::SVector)
 
    # compute upper triangle of H
    k = 0
-   @inbounds for j = 1:nband, i = 1:j
-      H[i,j] = _ham_elem(el.hr[ k+=1 ], e_ikr)
+   for j = 1:nband, i = 1:j
+      @inbounds H[i,j] = _ham_elem(el.hr[ k+=1 ], e_ikr)
    end
 end
 
@@ -61,11 +59,10 @@ end
 function bands(el::ElecHam{T}, kpts::AbstractArray{SVector{3,T}}) where T
    nband = length(el.orbit_pos)
    Hk = zeros(Complex{T}, nband, nband)
-
    eigs = zeros(T, nband, length(kpts))
 
    for (i, k) in enumerate(kpts)
-      eigs[:,i] = _band!(Hk, el, k)
+      @inbounds eigs[:,i] = _band!(Hk, el, k)
    end
    return eigs
 end
