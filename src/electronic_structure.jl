@@ -20,7 +20,7 @@ ElecHam(fn::String) = ElecHam( (h5open(fn,"r") do fid
    #
    hopping = load_electron_wannier(fid, num_wann)
    wscell = WSCell(SVector{3,Int}(rdim), SMatrix{3,3}(lattice))
-   orb_pos = vec(collect( reinterpret(SVector{3,eltype(w_center)}, w_center) ))
+   orb_pos = reinterpret(SVector{3,Float64}, w_center) |> vec |> collect
    ws_rvecs, rvec_idx = wiger_seitz_cell(wscell, orb_pos)
    hr = [Hopping(hopping[i], rvec_idx[i]) for i in eachindex(hopping, rvec_idx)]
    
