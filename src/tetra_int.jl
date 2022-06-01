@@ -14,32 +14,32 @@ integrations" PRB 49 16 333 (1994).
 """
 function tetra_int!(
    enk_t::AbstractVector{T},
-   fnk_t::AbstractVector{T},
+   fnk_t::AbstractVector{S},
    e_dos::AbstractVector{T},
-   t_sum::AbstractVector{T},
-) where {T}
-   @assert length(fnk_t) == length(enk_t) == 4 "both enk_t and fnk_t should have the length of 4!"
-   @assert length(e_dos) == length(t_sum) "e_dos and t_sum should have the same length!"
+   t_sum::AbstractVector{S},
+) where {T,S}
+   @assert length(fnk_t) == length(enk_t) == 4
+   "both enk_t and fnk_t should have the length of 4!"
+   @assert length(e_dos) == length(t_sum)
+   "e_dos and t_sum should have the same length!"
 
-   # get sorted enk and their corresponding fnk
+   # get sorted enk_t and their corresponding fnk_t
    idx = SVector{4}(sortperm(enk_t))
    e_sorted = enk_t[idx]
    f_sorted = fnk_t[idx]
-   
-   for (ie, ene) in Iterators.enumerate(e_dos)
-      wt = _weight_dos_sorted(e_sorted, ene)
+
+   for ie in eachindex(e_dos, t_sum)
       #update tsum with contribution from the current tetrahedron
-      t_sum[ie] += dot(wt, f_sorted)
+      @inbounds t_sum[ie] += _weight_dos_sorted(e_sorted, f_sorted, e_dos[ie])
    end
 end
 
 # internal function, do not export or used elsewhere.
 # Assume e is in sorted order:  e[1] <= e[2] <= e[3] <= e[4]
-function _weight_dos_sorted(e::SVector{4,T}, e_dos::T) where {T}
+function _weight_dos_sorted(e::SVector{4,T}, f::SVector{4,S}, e_dos::T) where {T,S}
    # evaluate weight of the four corners, adopted from weight_dos.f90
-   w1 = w2 = w3 = w4 = 0.0
    if e_dos < e[1]
-      #skip since w is initialized with 0
+      return zero(S)
    elseif e_dos < e[2] || (e_dos == e[2] == e[3] == e[4] && e[2] > e[1])
       et1 = e_dos - e[1]
       et2 = e[2] - e[1]
@@ -85,7 +85,8 @@ function _weight_dos_sorted(e::SVector{4,T}, e_dos::T) where {T}
       w2 = factor * et4 / et2
       w3 = factor * et4 / et3
       w4 = 3.0 * factor - w1 - w2 - w3
+   else
+      return zero(S)
    end
-   # w = 0 for any other cases
-   return SVector{4,T}(w1, w2, w3, w4)
+   return convert(S, w1 * f[1] + w2 * f[2] + w3 * f[3] + w4 * f[4])
 end
