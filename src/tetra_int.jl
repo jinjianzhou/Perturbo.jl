@@ -29,14 +29,15 @@ function tetra_int!(
    f_sorted = fnk_t[idx]
 
    for ie in eachindex(e_dos, t_sum)
-      #update tsum with contribution from the current tetrahedron
+      # update tsum with contribution from the current tetrahedron
       @inbounds t_sum[ie] += _weight_dos_sorted(e_sorted, f_sorted, e_dos[ie])
    end
+   return nothing
 end
 
 # internal function, do not export or used elsewhere.
 # Assume e is in sorted order:  e[1] <= e[2] <= e[3] <= e[4]
-function _weight_dos_sorted(e::SVector{4,T}, f::SVector{4,S}, e_dos::T) where {T,S}
+@inline function _weight_dos_sorted(e::SVector{4,T}, f::SVector{4,S}, e_dos::T) where {T,S}
    # evaluate weight of the four corners, adopted from weight_dos.f90
    if e_dos < e[1]
       return zero(S)
