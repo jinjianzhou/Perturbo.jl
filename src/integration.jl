@@ -17,5 +17,5 @@ function compute_dos(
       enk = SVector{4,T}(ene_bands[ib, map2ir[ik]] for ik in tet)
       tetra_int!(enk, fnk, egrid, dos)
    end
-   return dos
+   return dos ./ length(tetra)
 end

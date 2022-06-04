@@ -3,26 +3,31 @@ import Base: size
 # only support N=3 for now.
 struct BZGrid{N,T}
    # map reducible point to irreducible point (index in irrpos)
-   map2ir::Array{Int,N}
+   map2ir::Array{UInt32,N}
    # symmetry operation that map irreducible point to current one.
-   map2ir_symop::Array{Int,N}
+   map2ir_symop::Array{UInt8,N}
    # crystal coordinates of the irreducible points.
    irrpos::Vector{SVector{N,T}}
    # symmetry operations used to compute the irreducible points.
    symop::Vector{SMatrix{N,N,T}}
    # tetrahedra, if N=2 (2D case), we need to change 4 to 3.
-   tetra::Vector{SVector{4,Int}}
+   tetra::Vector{SVector{4,UInt32}}
 end
 
 # get the size of the BZ grid.
 size(g::BZGrid) = size(g.map2ir)
 
-BZGrid(grid_dim::AbstractVector{<:Integer}, symop::AbstractVector{<:SMatrix}) =
-   BZGrid(NTuple{3,Int}(grid_dim), symop)
+BZGrid(grid_dim::AbstractVector{<:Integer}, symop) = BZGrid(NTuple{3}(grid_dim), symop)
 
-function BZGrid(grid_dim::NTuple{3,Int}, symop::Vector{<:SMatrix{3,3,T}}) where {T}
-   map2ir = zeros(Int, grid_dim)
-   map2ir_symop = zeros(Int, grid_dim)
+function BZGrid(
+   grid_dim::NTuple{3,<:Integer},
+   symop::Vector{<:SMatrix{3,3,T}},
+) where {T<:Real}
+   @assert all(grid_dim .> 0) "Negative dimension in grid size: $(grid_dim)!"
+   @assert prod(grid_dim) < typemax(UInt32) "Grid size exceed limit $(typemax(UInt32))"
+
+   map2ir = zeros(UInt32, grid_dim)
+   map2ir_symop = zeros(UInt8, grid_dim)
 
    irr_idx = 0
    for pt in CartesianIndices(grid_dim)
@@ -60,9 +65,9 @@ function BZGrid(grid_dim::NTuple{3,Int}, symop::Vector{<:SMatrix{3,3,T}}) where 
    return BZGrid{3,T}(map2ir, map2ir_symop, irrpos, symop, tetra)
 end
 
-@inline function pos2pts(grid_dim::NTuple{3,Int}, pos::NTuple{3,Int})
+@inline function pos2pts(grid_dim::NTuple{3,T}, pos::NTuple{3,T}) where {T<:Integer}
    # shift to start from 0
-   pos = pos .- 1
+   pos = pos .- one(T)
    # fold to the Gamma-centered FBZ, -0.5 <= kpt[i] < 0.5, in crystal coordinate
    i_fold = round.(pos ./ grid_dim, RoundNearestTiesUp)
    pos_fold = pos .- grid_dim .* i_fold
@@ -70,19 +75,18 @@ end
    return SVector{3}(pos_fold ./ grid_dim)
 end
 
-@inline function pts2pos(grid_dim::NTuple{3,Int}, pts::SVector{3,T}) where {T}
+@inline function pts2pos(grid_dim::NTuple{3,T}, pts::SVector{3}) where {T<:Integer}
    xpt = pts .* grid_dim
-   ipt = round.(xpt)
+   ipt = T.(round.(xpt))
    # return nothing if the pts isn't on the grid.
    norm(xpt .- ipt) > eps(Float32) && return nothing
 
-   return NTuple{3,Int}((ipt .% grid_dim .+ grid_dim) .% grid_dim .+ 1)
+   return NTuple{3}((ipt .% grid_dim .+ grid_dim) .% grid_dim .+ one(T))
 end
 
-function get_tetra(grid_dim::NTuple{3,Int})
-   @assert all(grid_dim .> 0) "Negative dimension in grid size: $(grid_dim)!"
-   npts = prod(grid_dim)
-   tetra = Matrix{SVector{4,Int}}(undef, 6, npts)
+function get_tetra(grid_dim::NTuple{3,<:Integer})
+   # grid_dim should be positive integer
+   tetra = Matrix{SVector{4,UInt32}}(undef, 6, prod(grid_dim))
 
    for (i, v) in Iterators.enumerate(CartesianIndices(grid_dim))
       t = _cube_to_tetra(grid_dim, v.I)
@@ -93,7 +97,7 @@ function get_tetra(grid_dim::NTuple{3,Int})
    return vec(tetra)
 end
 
-@inline function _cube_to_tetra(grid_dim::NTuple{3,Int}, start::NTuple{3,Int})
+@inline function _cube_to_tetra(grid_dim::NTuple{3}, start::NTuple{3})
    ## Note that this is different from the fortran version of perturbo
    ## here we use the convention consistent with CartesianIndex in Julia
    ## 1) i, j, k start from 1;  2) here i is fast index, instead of k.

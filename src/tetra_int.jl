@@ -22,6 +22,10 @@ function tetra_int!(
    "both enk_t and fnk_t should have the length of 4!"
    @assert length(e_dos) == length(t_sum)
    "e_dos and t_sum should have the same length!"
+   
+   #skip if this tetra contributes nothing, saves quite a bit of work
+   emin, emax = extrema(e_dos)
+   (emin >= maximum(enk_t) || emax <= minimum(enk_t)) && return nothing
 
    # get sorted enk_t and their corresponding fnk_t
    idx = SVector{4}(sortperm(enk_t))
