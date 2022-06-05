@@ -6,7 +6,7 @@ end
 
 struct ElecHam{T}
    orbit_pos::Vector{SVector{3,T}}
-   ws_rvecs::Vector{SVector{3,T}}
+   ws_rvecs::Vector{SVector{3,Int}}
    hr::Vector{Hopping{T}}
 end
 

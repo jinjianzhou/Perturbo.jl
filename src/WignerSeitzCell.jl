@@ -1,56 +1,64 @@
 const ws_search_range = 3
 const ws_sr = ws_search_range #a short name for ws_search_range
 
-struct WSCell{T}
-   WS_size::SVector{3,Int}
+struct WSCell{S<:Integer,T<:Real}
+   ws_size::NTuple{3,S}
+   rvecs::Vector{Vector{SVector{3,S}}}
    latt_vectors::SMatrix{3,3,T,9}
-   rvecs::Vector{Vector{SVector{3,T}}}
    cutoff::T
-
-   function WSCell{T}(wsize::SVector{3,Int}, latvec::SMatrix{3,3,T,9}) where {T<:Real}
-      get_length = vec -> norm(latvec * vec)
-      cutoff = set_cutoff(get_length, wsize)
-      nr1, nr2, nr3 = wsize
-
-      all_vecs = Vector{Vector{SVector{3,T}}}(undef, prod(wsize))
-      for (i, v) in enumerate(Iterators.product(0:nr1-1, 0:nr2-1, 0:nr3-1))
-         all_vecs[i] = valid_cells(get_length, SVector{3}(v), wsize, cutoff)
-      end
-      return new(wsize, latvec, all_vecs, cutoff)
-   end
 end
 
-WSCell(wsize::SVector, latvec::SMatrix{3,3,T,9}) where {T} = WSCell{T}(wsize, latvec)
+function WSCell(wsize::NTuple{3,S}, latvec::SMatrix{3,3,T,9}) where {S<:Integer,T<:Real}
+   get_length = vec -> norm(latvec * vec)
+   cutoff = set_cutoff(get_length, wsize)
+   nr1, nr2, nr3 = wsize
+
+   all_vecs = Vector{Vector{SVector{3,Int}}}(undef, prod(wsize))
+   for (i, v) in enumerate(Iterators.product(0:nr1-1, 0:nr2-1, 0:nr3-1))
+      all_vecs[i] = valid_cells(get_length, v, wsize, cutoff)
+   end
+   return WSCell{S,T}(wsize, all_vecs, latvec, cutoff)
+end
+
+WSCell(wsize::SVector{3}, latvec) = WSCell(NTuple{3}(wsize), latvec)
 
 function set_cutoff(get_length::Function, rdim; lcutoff = false)
    ndim = lcutoff ? rdim : (rdim .÷ 2 .+ 1)
    max_len = 0.0
    for vec in Iterators.product((-1, 1), (-1, 1), (-1, 1))
-      dist = get_length(SVector{3}(float.(vec .* ndim)))
+      dist = get_length(SVector{3,Float64}(vec .* ndim))
       dist > max_len && (max_len = dist)
    end
    return max_len
 end
 
-function valid_cells(get_length::Function, v0::SVector, rdim::SVector, cutoff::T) where {T}
+function valid_cells(
+   get_length::Function,
+   v0::NTuple{3,S},
+   rdim::NTuple{3,S},
+   cutoff::Real,
+) where {S<:Integer}
    [
       vec for i in Iterators.product(-ws_sr:ws_sr, -ws_sr:ws_sr, -ws_sr:ws_sr) for
-      vec = Ref(SVector{3,T}(i .* rdim .+ v0)) if get_length(vec) < cutoff
+      vec = Ref(SVector{3,S}(i .* rdim .+ v0)) if get_length(vec) < cutoff
    ]
 end
 
-function wiger_seitz_cell(ws::WSCell{T}, tau::AVec{SVector{3,T}}) where {T}
+function wiger_seitz_cell(
+   ws::WSCell{S,T},
+   tau::AVec{<:SVector{3}},
+) where {S<:Integer,T<:Real}
    get_length = vec -> norm(ws.latt_vectors * vec)
    #
    delta_tau = [(tau[j] - tau[i]) for j in 1:length(tau) for i in 1:j]
 
-   ws_vecs = Vector{Vector{SVector{3,T}}}(undef, length(ws.rvecs))
-   idx_tmp = Vector{Vector{Int}}(undef, length(delta_tau))
-   r_idx = [Vector{Int}() for _ in 1:length(delta_tau)]
+   ws_vecs = Vector{Vector{SVector{3,S}}}(undef, length(ws.rvecs))
+   idx_tmp = Vector{Vector{S}}(undef, length(delta_tau))
+   r_idx = [Vector{S}() for _ in 1:length(delta_tau)]
 
    pre_len = 0
    for (vid, vecs) in enumerate(ws.rvecs)
-      labels = zeros(Int, length(vecs))
+      labels = zeros(S, length(vecs))
       dist = zeros(T, length(vecs))
 
       for (it, dt) in enumerate(delta_tau)
