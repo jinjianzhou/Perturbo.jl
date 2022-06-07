@@ -26,7 +26,7 @@ function hamk_fft(tb::ElecHam{T}, fft_size::NTuple{3,Int}, kpt::SVector{3,T}) wh
    end
 
    #perform FFT 
-   p = plan_fft(hr_fft, 1:3, flags = FFTW.PATIENT)
+   p = plan_fft(hr_fft, 1:3)
    hk_fft = similar(hr_fft)
    mul!(hk_fft, p, hr_fft)
    #
@@ -43,6 +43,7 @@ function diag_hamk(hk_fft::AbstractArray{Complex{T},4}, ::Val{D}) where {T,D}
       for j in 1:D, i in 1:j
          Hk[i, j] = hk_fft[ik, n+=1]
       end
+      #significant spdedup using StaticArray for small matrices
       H = D < 5 ? SMatrix{D,D}(Hermitian(Hk)) : Hk
       eigs[:, ik] = eigvals(Hermitian(H))
    end

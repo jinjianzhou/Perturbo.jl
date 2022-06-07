@@ -19,3 +19,19 @@ function compute_dos(
    end
    return dos ./ length(tetra)
 end
+
+function compute_dos(tb::ElecHam{T}, BZ_size::NTuple{3,Int}, egrid::AbstractVector{T}) where {T}
+   #get eigs
+   numb = length(tb.orbit_pos)
+   ene_bands = reshape(bands_fft(tb, BZ_size), numb, :) .* Perturbo.Rydberg2eV
+   #get tetrahedron
+   tetra = get_tetra(BZ_size)
+
+   dos = zeros(T, size(egrid))
+   fnk = ones(SVector{4,T})
+   for tet in tetra, ib in 1:numb
+      enk = SVector{4,T}(ene_bands[ib, ik] for ik in tet)
+      tetra_int!(enk, fnk, egrid, dos)
+   end
+   return dos ./ length(tetra)
+end
