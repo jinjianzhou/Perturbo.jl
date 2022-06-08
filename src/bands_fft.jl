@@ -18,11 +18,10 @@ function hamk_fft(tb::ElecHam{T}, fft_size::NTuple{3,Int}, kpt::SVector{3,T}) wh
    hr_fft = zeros(Complex{T}, (fft_size..., nelem))
    #compute exp(i 2\pi*K*R)
    e_ikr = exp_ikr(tb.ws_rvecs, 2π * kpt)
+   fft_pos = [CartesianIndex(get_fft_pos(fft_size, rvec)) for rvec in tb.ws_rvecs]
    #map the H(R) data to an array for fftw transformation.
    for i in 1:nelem, (n, val) in Iterators.enumerate(tb.hr[i].r_idx)
-      rvec = tb.ws_rvecs[val]
-      fft_pos = get_fft_pos(fft_size, rvec)
-      hr_fft[CartesianIndex(fft_pos), i] = tb.hr[i].t[n] * e_ikr[val]
+      hr_fft[fft_pos[val], i] = tb.hr[i].t[n] * e_ikr[val]
    end
 
    #perform FFT 

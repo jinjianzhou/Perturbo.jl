@@ -46,11 +46,11 @@ end
 
 function wiger_seitz_cell(
    ws::WSCell{S,T},
-   tau::AVec{<:SVector{3}},
+   delta_tau::AVec{<:SVector{3}},
 ) where {S<:Integer,T<:Real}
    get_length = vec -> norm(ws.latt_vectors * vec)
    #
-   delta_tau = [(tau[j] - tau[i]) for j in 1:length(tau) for i in 1:j]
+   #delta_tau = [(tau[j] - tau[i]) for j in 1:length(tau) for i in 1:j]
 
    ws_vecs = Vector{Vector{SVector{3,S}}}(undef, length(ws.rvecs))
    idx_tmp = Vector{Vector{S}}(undef, length(delta_tau))
